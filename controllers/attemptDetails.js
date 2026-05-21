@@ -152,6 +152,8 @@ exports.getRankings = async (req, res) => {
     const {
       testId,    // Filter by mockTestSeries ObjectId
       testName,  // Filter by testName string
+      minRank,   // Filter by minimum rank
+      maxRank,   // Filter by maximum rank
       page = 1,
       limit = 10
     } = req.query;
@@ -201,6 +203,16 @@ exports.getRankings = async (req, res) => {
           }
         }
       },
+
+      // Stage 4: Filter by rank if requested
+      ...(minRank || maxRank ? [{
+        $match: {
+          rank: {
+            ...(minRank ? { $gte: parseInt(minRank) } : {}),
+            ...(maxRank ? { $lte: parseInt(maxRank) } : {})
+          }
+        }
+      }] : []),
 
       // Sort by rank ascending so pagination is stable
       { $sort: { testName: 1, rank: 1 } },

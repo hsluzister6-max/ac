@@ -9,20 +9,25 @@ require('dotenv').config();
 exports.auth = (req, res, next) => {
     try {
         // Extract token from body, cookies, or headers
-        const token = req.body?.token || req.cookies?.token || req.header('Authorization')?.replace('Bearer ', '');
-        console.log(req.header('Authorization')?.replace('Bearer ', ''))
+        const authHeader = req.header('Authorization');
+        const token = req.body?.token || req.cookies?.token || authHeader?.replace('Bearer ', '');
+        
+        console.log(`[Auth Middleware] URL: ${req.originalUrl}, Method: ${req.method}`);
+        console.log(`[Auth Middleware] Auth Header Present: ${!!authHeader}`);
+
         // If token is missing
         if (!token) {
+            console.log('[Auth] Token is Missing');
             return res.status(401).json({
                 success: false,
-                message: 'Token is Missing'
+                message: 'Token is Missing - Authorization header might be missing'
             });
         }
 
         // Verify token
         jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
             if (err) {
-                //console.log('Error while decoding token:', err.message);
+                console.log('[Auth] Token verification failed:', err.message);
                 return res.status(401).json({
                     success: false,
                     message: 'Error while decoding token',
@@ -32,13 +37,13 @@ exports.auth = (req, res, next) => {
 
             // Attach decoded token to request object
             req.user = decoded;
-            //console.log("This is Decode:", decoded);
+            console.log("[Auth] Token verified for user:", decoded.email, "Role:", decoded.accountType);
 
             // Proceed to the next middleware
             next();
         });
     } catch (error) {
-        //console.log('Error while validating token:', error.message);
+        console.error('[Auth] Internal error:', error.message);
         return res.status(500).json({
             success: false,
             message: 'Error while validating token',
@@ -58,7 +63,7 @@ exports.isStudent = (req, res, next) => {
         if (req.user?.accountType != 'Student') {
             return res.status(401).json({
                 success: false,
-                messgae: 'This Page is protected only for student'
+                message: `This Page is protected only for students. Current role: ${req.user?.accountType}`
             })
         }
         // go to next middleware

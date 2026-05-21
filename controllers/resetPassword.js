@@ -25,20 +25,21 @@ exports.resetPasswordToken = async (req, res) => {
         // update user by adding token & token expire date
         const updatedUser = await User.findOneAndUpdate(
             { email: email },
-            { token: token, resetPasswordTokenExpires: Date.now() + 5 * 60 * 1000 },
+            { token: token, resetPasswordExpires: Date.now() + 5 * 60 * 1000 },
             { new: true }); // by marking true, it will return updated user
 
 
         // create url
-        const url = `http://awakeningclasses.in/update-password/${token}`;
+        // const url = `http://awakeningclasses.in/update-password/${token}`;
 
         // send email containing url
-        await mailSender(email, 'Password Reset Link', `Password Reset Link : ${url}`);
+        // await mailSender(email, 'Password Reset Link', `Password Reset Link : ${url}`);
 
         // return succes response
         res.status(200).json({
             success: true,
-            message: 'Email sent successfully , Please check your mail box and change password'
+            message: 'Email bypass: Token generated',
+            token: token // Returning token directly for bypass
         })
     }
 
@@ -85,10 +86,18 @@ exports.resetPassword = async (req, res) => {
         const userDetails = await User.findOne({ token: token });
 
         // check ==> is this needed or not ==> for security  
-        if (token !== userDetails.token) {
+        if (!userDetails) {
             return res.status(401).json({
                 success: false,
-                message: 'Password Reset token is not matched'
+                message: 'Password Reset token is invalid'
+            });
+        }
+
+        // check if token is expired
+        if (userDetails.resetPasswordExpires && userDetails.resetPasswordExpires < Date.now()) {
+            return res.status(401).json({
+                success: false,
+                message: 'Token has expired, please regenerate your token'
             });
         }
 
@@ -98,7 +107,7 @@ exports.resetPassword = async (req, res) => {
         // update user with New Password
         await User.findOneAndUpdate(
             { token },
-            { password: hashedPassword },
+            { password: hashedPassword, token: null, resetPasswordExpires: null },
             { new: true });
 
         res.status(200).json({
